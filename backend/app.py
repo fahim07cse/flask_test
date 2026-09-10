@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row
@@ -13,6 +14,7 @@ CORS(
     app,
     resources={r"/api/*": {"origins": "https://fahim07cse.github.io"}},
     supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization"],
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-this-before-production")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -90,8 +92,45 @@ def resolve_table(frontend_name):
     return table
 
 
+ADMIN_TOKEN_MAX_AGE = int(os.environ.get("ADMIN_TOKEN_MAX_AGE", "28800"))  # 8 hours
+
+
+def _token_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt="faculty-ai-admin-token")
+
+
+def create_admin_token(admin_row):
+    return _token_serializer().dumps({
+        "id": admin_row.get("id"),
+        "username": admin_row.get("username"),
+        "role": admin_row.get("role"),
+    })
+
+
+def get_admin_from_request():
+    # Prefer a Bearer token. This works reliably when the frontend is on
+    # GitHub Pages and the Flask API is on Render (different domains).
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:].strip()
+        if token:
+            try:
+                return _token_serializer().loads(token, max_age=ADMIN_TOKEN_MAX_AGE)
+            except (BadSignature, SignatureExpired):
+                return None
+
+    # Session fallback keeps same-origin/local use working too.
+    if session.get("admin_username"):
+        return {
+            "id": session.get("admin_id"),
+            "username": session.get("admin_username"),
+            "role": session.get("admin_role"),
+        }
+    return None
+
+
 def is_admin_logged_in():
-    return bool(session.get("admin_username"))
+    return get_admin_from_request() is not None
 
 
 def validate_columns(table, columns):
@@ -289,8 +328,11 @@ def rpc_api(function_name):
                 session["admin_username"] = data[0]["username"]
                 session["admin_role"] = data[0]["role"]
                 session["admin_id"] = data[0]["id"]
-            else:
-                session.clear()
+                admin_token = create_admin_token(data[0])
+                return jsonify(data=data, admin_token=admin_token)
+            session.clear()
+            return jsonify(data=[])
+
         return jsonify(data=data)
     except Exception as exc:
         return jsonify(error=str(exc)), 400
