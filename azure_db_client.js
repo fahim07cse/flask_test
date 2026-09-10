@@ -4,6 +4,32 @@
   browser database operations to the Flask backend; Flask connects privately to Supabase PostgreSQL.
 */
 (function () {
+  const TOKEN_KEY = 'facultyAiAdminToken';
+
+  function getAdminToken() {
+    return sessionStorage.getItem(TOKEN_KEY) || '';
+  }
+
+  function setAdminToken(token) {
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  }
+
+  function apiHeaders(extra = {}) {
+    const headers = { ...extra };
+    const token = getAdminToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  }
+
+  // Existing admin HTML only changes the UI on logout. Clear the API token
+  // automatically as well, without requiring changes to that page.
+  document.addEventListener('click', event => {
+    if (event.target && event.target.closest && event.target.closest('#logoutBtn')) {
+      setAdminToken('');
+    }
+  }, true);
+
   class QueryBuilder {
     constructor(table) {
       this.table = table;
@@ -76,19 +102,19 @@
         const url = `${base}/api/table/${encodeURIComponent(this.table)}?${params.toString()}`;
         let response;
         if (this.operation === 'select') {
-          response = await fetch(url, { credentials: 'include' });
+          response = await fetch(url, { credentials: 'include', headers: apiHeaders() });
         } else if (this.operation === 'insert') {
           response = await fetch(url, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(this.payload)
           });
         } else if (this.operation === 'update') {
           response = await fetch(url, {
             method: 'PATCH',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(this.payload)
           });
         }
@@ -118,12 +144,15 @@
           const response = await fetch(`${String(window.FLASK_API_BASE_URL || '').replace(/\/$/, '')}/api/rpc/${encodeURIComponent(name)}`, {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(args)
           });
           const body = await response.json().catch(() => ({}));
           if (!response.ok) {
             return { data: null, error: { message: body.error || `HTTP ${response.status}` } };
+          }
+          if (name === 'verify_admin_login') {
+            setAdminToken(body.admin_token || '');
           }
           return { data: body.data ?? [], error: null };
         } catch (err) {
