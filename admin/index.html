@@ -1,0 +1,1267 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Users</title>
+
+  <script src="../config.js"></script>
+  <script src="../azure_db_client.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #667085;
+      --line: #e5e9f0;
+      --accent: #244a7c;
+      --danger: #a33;
+      --shadow: 0 8px 28px rgba(22, 34, 51, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #f7f9fc 0, #f3f6fa 100%);
+      color: var(--text);
+    }
+
+    button, input, select, textarea { font: inherit; }
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+
+    .login {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at top left, #eef4fb 0, transparent 38%),
+        linear-gradient(135deg, #f7f9fc, #eef3f8);
+    }
+
+    .login-card {
+      width: min(420px, 100%);
+      background: var(--card);
+      padding: 38px 36px;
+      border: 1px solid #e2e8f0;
+      border-radius: 22px;
+      box-shadow: 0 18px 55px rgba(30, 50, 80, .12);
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eaf1f9;
+      color: #244a7c;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    h1, h2, h3 { margin-top: 0; }
+
+    .login-card h1 {
+      font-size: 30px;
+      letter-spacing: -.5px;
+      margin: 8px 0 4px;
+    }
+
+    .login-subtitle {
+      margin: 0 0 18px;
+      color: #36577f;
+      font-weight: 600;
+    }
+
+    .field { margin: 14px 0; }
+
+    .field label {
+      display: block;
+      font-weight: 650;
+      margin-bottom: 6px;
+    }
+
+    .field input,
+    .field textarea,
+    .field select,
+    .toolbar input,
+    .toolbar select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ccd3dd;
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus,
+    .toolbar input:focus,
+    .toolbar select:focus {
+      outline: none;
+      border-color: #6f8fb5;
+      box-shadow: 0 0 0 3px rgba(36, 74, 124, .10);
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 14px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 650;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(36, 74, 124, .12);
+    }
+
+    .btn.secondary {
+      background: #eef2f7;
+      color: #253858;
+    }
+
+    .btn.danger {
+      background: #fff1f1;
+      color: var(--danger);
+      border: 1px solid #efcaca;
+    }
+
+    .btn.small {
+      padding: 6px 9px;
+      font-size: 12px;
+    }
+
+    .login-card .btn {
+      width: 100%;
+      padding: 12px 16px;
+      margin-top: 4px;
+    }
+
+    .msg {
+      min-height: 20px;
+      margin-top: 10px;
+      color: var(--danger);
+    }
+
+    header {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 2px 10px rgba(22, 34, 51, .035);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      background: #244a7c;
+      color: white;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .header-brand strong { font-size: 17px; }
+    .header-subtitle { font-size: 12px; color: #667085; margin-top: 1px; }
+
+    .wrap {
+      max-width: 1400px;
+      margin: auto;
+      padding: 26px 22px 22px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .stat,
+    .panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 3px 14px rgba(22, 34, 51, .04);
+    }
+
+    .stat { padding: 20px; }
+    .stat b { font-size: 29px; display: block; letter-spacing: -.5px; margin-bottom: 3px; }
+    .stat span { color: var(--muted); }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 18px 0;
+      padding: 5px;
+      background: #e9eef5;
+      border-radius: 12px;
+      width: max-content;
+      max-width: 100%;
+    }
+
+    .tab { background: #e9eef5; color: #344054; border-radius: 9px; }
+    .tab.active { background: var(--accent); color: #fff; box-shadow: 0 3px 8px rgba(36, 74, 124, .18); }
+
+    .panel { padding: 20px; margin-top: 16px; }
+
+    .topline,
+    .admin-actions-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .spacer { flex: 1; }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 2fr 1fr auto;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+      position: sticky;
+      top: 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .035em;
+      color: #526174;
+    }
+
+    tbody tr:hover { background: #fafcff; }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .admin-status,
+    .admin-role {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .admin-status.active { background: #eaf7ef; color: #217a46; }
+    .admin-status.inactive { background: #f2f4f7; color: #667085; }
+    .admin-role { background: #eef3f9; color: #36577f; }
+
+    .admin-note {
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin: 12px 0 16px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .46);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      z-index: 10;
+    }
+
+    .modal-card {
+      background: #fff;
+      width: min(820px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      border-radius: 16px;
+      padding: 22px;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .full { grid-column: 1 / -1; }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-start;
+      margin-top: 16px;
+    }
+
+    .activity { padding: 10px 0; border-bottom: 1px solid var(--line); }
+
+    @media (max-width: 800px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      .toolbar, .grid2 { grid-template-columns: 1fr; }
+      .full { grid-column: auto; }
+      header { padding: 14px 16px; }
+      .wrap { padding: 16px; }
+      .tabs { width: 100%; }
+      .login-card { padding: 28px 22px; }
+    }
+  </style>
+</head>
+<body>
+  <section id="loginView" class="login">
+    <div class="login-card">
+      <div class="brand-badge">ADMIN PORTAL</div>
+      <h1>Admin Users</h1>
+      <p class="login-subtitle">Administration</p>
+      <p class="muted">Sign in with your User ID and Password.</p>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="loginUsername">User ID</label>
+          <input id="loginUsername" type="text" required autocomplete="username" placeholder="admin">
+        </div>
+
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" type="password" required autocomplete="current-password">
+        </div>
+
+        <button class="btn" type="submit">Login</button>
+        <div id="loginMsg" class="msg"></div>
+      </form>
+    </div>
+  </section>
+
+  <section id="adminView" class="hidden">
+    <header>
+      <div class="header-brand">
+        <span class="brand-mark">A</span>
+        <div>
+          <strong>Admin Users</strong>
+          <div class="header-subtitle">Administration</div>
+          <div id="adminIdentity" class="muted"></div>
+        </div>
+      </div>
+      <button id="logoutBtn" class="btn secondary">Logout</button>
+    </header>
+
+    <main class="wrap">
+      <div class="stats">
+        <div class="stat"><b id="totalCount">0</b><span>Active faculty</span></div>
+        <div class="stat"><b id="deletedCount">0</b><span>Deleted records</span></div>
+        <div class="stat"><b id="deptCount">0</b><span>Departments</span></div>
+        <div class="stat"><b id="updatedAt">—</b><span>Latest update</span></div>
+      </div>
+
+      <div class="tabs">
+        <button class="btn tab active" data-tab="records">Faculty Records</button>
+        <button class="btn tab" data-tab="deleted">Deleted Records</button>
+        <button class="btn tab" data-tab="admins">Admin Users</button>
+        <button class="btn tab" data-tab="activity">Activity Log</button>
+      </div>
+
+      <section id="recordsTab" class="panel tabpane">
+        <div class="topline">
+          <h2>Faculty Records</h2>
+          <span class="spacer"></span>
+          <button id="uploadExcelBtn" class="btn secondary">Upload Excel</button>
+          <button id="exportBtn" class="btn">Download Excel</button>
+        </div>
+
+        <div class="toolbar">
+          <input id="searchBox" placeholder="Search name, email, department...">
+          <select id="deptFilter"><option value="">All departments</option></select>
+          <button id="clearFilter" class="btn secondary">Clear</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Department</th><th>Updated</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="deletedTab" class="panel tabpane hidden">
+        <h2>Deleted Records</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Department</th><th>Deleted</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="deletedBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="adminsTab" class="panel tabpane hidden">
+        <div class="admin-actions-head">
+          <div>
+            <h2 style="margin-bottom:4px">Admin Users</h2>
+            <p class="muted" style="margin:0">Manage database login users.</p>
+          </div>
+          <span class="spacer"></span>
+          <button id="openAddAdmin" class="btn">+ Add Admin</button>
+        </div>
+
+        <div class="admin-note">
+          User IDs are stored in <strong>admin_login_users</strong>. Passwords are stored only as secure hashes, not plain text.
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>User ID</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="adminsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="activityTab" class="panel tabpane hidden">
+        <h2>Activity Log</h2>
+        <div id="activityList"></div>
+      </section>
+    </main>
+  </section>
+
+  <div id="recordModal" class="modal hidden">
+    <div class="modal-card">
+      <h2 id="modalTitle">Faculty record</h2>
+      <form id="recordForm" class="grid2"></form>
+      <div class="modal-actions">
+        <button id="saveRecord" class="btn hidden" type="button">Save Changes</button>
+        <button id="closeModal" class="btn secondary" type="button">Close</button>
+      </div>
+      <div id="modalMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <div id="excelUploadModal" class="modal hidden">
+    <div class="modal-card" style="width:min(980px,100%)">
+      <h2>Upload Faculty Excel</h2>
+      <p class="muted">Select the Microsoft Forms Excel file. Existing records are matched by email and updated; new emails are inserted. Rows without the required consent are skipped.</p>
+
+      <div class="field">
+        <label for="excelFileInput">Excel file (.xlsx / .xls)</label>
+        <input id="excelFileInput" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+      </div>
+
+      <div id="excelSummary" class="admin-note hidden"></div>
+      <div id="excelPreviewWrap" class="table-wrap hidden" style="max-height:360px;overflow:auto">
+        <table>
+          <thead><tr><th>Row</th><th>Name</th><th>Email</th><th>Department</th><th>Status</th></tr></thead>
+          <tbody id="excelPreviewBody"></tbody>
+        </table>
+      </div>
+
+      <div class="modal-actions">
+        <button id="importExcelBtn" class="btn hidden" type="button">Import to Database</button>
+        <button id="closeExcelUpload" class="btn secondary" type="button">Cancel</button>
+      </div>
+      <div id="excelUploadMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <div id="addAdminModal" class="modal hidden">
+    <div class="modal-card" style="width:min(560px,100%)">
+      <h2>Add Admin User</h2>
+
+      <div class="field">
+        <label for="newAdminUsername">User ID</label>
+        <input id="newAdminUsername" type="text" placeholder="newadmin">
+      </div>
+
+      <div class="field">
+        <label for="newAdminPassword">Password</label>
+        <input id="newAdminPassword" type="password" placeholder="Password">
+      </div>
+
+      <div class="field">
+        <label for="newAdminRole">Role</label>
+        <select id="newAdminRole">
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button id="saveAdminUser" class="btn" type="button">Add Admin</button>
+        <button id="closeAddAdmin" class="btn secondary" type="button">Cancel</button>
+      </div>
+      <div id="addAdminMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <script>
+    const db = createAzureClient();
+
+    let active = [];
+    let deleted = [];
+    let current = null;
+    let admin = null;
+    let currentAdminPassword = ''; // kept only in memory while this page is open
+    let pendingExcelRows = [];
+    let pendingExcelHash = '';
+    let pendingExcelName = '';
+    let pendingExcelAlreadyImported = false;
+
+    const fields = [
+      ['name', 'Name', 'text'],
+      ['email', 'Email', 'email'],
+      ['department', 'Q1 Department', 'text'],
+      ['research_groups', 'Q2 Research Groups', 'textarea'],
+      ['keywords', 'Q3 Keywords', 'textarea'],
+      ['showcase_interest', 'Q4 Showcase Interest', 'text'],
+      ['ai_research', 'Q5 AI Research / Scholarship', 'textarea'],
+      ['enterprise_projects', 'Q6 Enterprise / KE', 'textarea'],
+      ['future_directions', 'Q7 Future Directions', 'textarea'],
+      ['external_organisations', 'Q8 External Organisations', 'textarea'],
+      ['support_training', 'Q9 Support / Training', 'textarea'],
+      ['additional_comments', 'Q10 Additional Comments', 'textarea'],
+      ['consent', 'Q11 Consent', 'text']
+    ];
+
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
+
+    const fmt = value => value ? new Date(value).toLocaleString('en-GB') : '—';
+
+    function showLogin(message = '') {
+      admin = null;
+      document.getElementById('loginView').classList.remove('hidden');
+      document.getElementById('adminView').classList.add('hidden');
+      document.getElementById('loginMsg').textContent = message;
+    }
+
+    function showAdmin() {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('adminView').classList.remove('hidden');
+      document.getElementById('adminIdentity').textContent =
+        `${admin.username} · ${admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}`;
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async event => {
+      event.preventDefault();
+
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const loginMsg = document.getElementById('loginMsg');
+
+      loginMsg.textContent = 'Signing in…';
+
+      const { data, error } = await db.rpc('verify_admin_login', {
+        p_username: username,
+        p_password: password
+      });
+
+      if (error) {
+        loginMsg.textContent = error.message;
+        return;
+      }
+
+      if (!data || !data.length) {
+        loginMsg.textContent = 'Invalid User ID or Password.';
+        return;
+      }
+
+      admin = data[0];
+      currentAdminPassword = password;
+      loginMsg.textContent = '';
+      showAdmin();
+
+      try {
+        await logActivity('login', '', 'Admin login');
+        await refresh();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      document.getElementById('loginForm').reset();
+      currentAdminPassword = '';
+      showLogin();
+    });
+
+    async function refresh() {
+      const { data, error } = await db
+        .from('ai_faculty_data')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+
+      active = (data || []).filter(row => !row.is_deleted);
+      deleted = (data || []).filter(row => row.is_deleted);
+
+      renderStats();
+      renderDept();
+      renderRecords();
+      renderDeleted();
+      await Promise.all([renderAdmins(), renderActivity()]);
+    }
+
+    function renderStats() {
+      document.getElementById('totalCount').textContent = active.length;
+      document.getElementById('deletedCount').textContent = deleted.length;
+      document.getElementById('deptCount').textContent =
+        new Set(active.map(row => row.department).filter(Boolean)).size;
+
+      const dates = active
+        .map(row => row.last_modified_time || row.completion_time || row.start_time)
+        .filter(Boolean)
+        .sort();
+
+      document.getElementById('updatedAt').textContent = dates.length
+        ? new Date(dates.at(-1)).toLocaleDateString('en-GB')
+        : '—';
+    }
+
+    function renderDept() {
+      const select = document.getElementById('deptFilter');
+      const currentValue = select.value;
+      const departments = [...new Set(active.map(row => row.department).filter(Boolean))].sort();
+
+      select.innerHTML = '<option value="">All departments</option>' +
+        departments.map(item => `<option>${esc(item)}</option>`).join('');
+
+      select.value = currentValue;
+    }
+
+    function filtered() {
+      const query = document.getElementById('searchBox').value.trim().toLowerCase();
+      const department = document.getElementById('deptFilter').value;
+
+      return active.filter(row => {
+        const departmentMatch = !department || row.department === department;
+        const textMatch = !query || [row.name, row.email, row.department]
+          .some(value => String(value || '').toLowerCase().includes(query));
+
+        return departmentMatch && textMatch;
+      });
+    }
+
+    function renderRecords() {
+      const body = document.getElementById('recordsBody');
+      const rows = filtered();
+
+      body.innerHTML = rows.map(row => `
+        <tr>
+          <td>${esc(row.name)}</td>
+          <td>${esc(row.email)}</td>
+          <td>${esc(row.department)}</td>
+          <td>${fmt(row.last_modified_time)}</td>
+          <td class="actions">
+            <button class="btn small secondary" onclick="openRecord('${row.id}', 'view')">View</button>
+            <button class="btn small" onclick="openRecord('${row.id}', 'edit')">Edit</button>
+            <button class="btn small danger" onclick="softDelete('${row.id}')">Soft Delete</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="5">No records found.</td></tr>';
+    }
+
+    function renderDeleted() {
+      const body = document.getElementById('deletedBody');
+
+      body.innerHTML = deleted.map(row => `
+        <tr>
+          <td>${esc(row.name)}</td>
+          <td>${esc(row.email)}</td>
+          <td>${esc(row.department)}</td>
+          <td>${fmt(row.deleted_at)}</td>
+          <td>
+            <button class="btn small" onclick="restoreRecord('${row.id}')">Restore</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="5">No deleted records.</td></tr>';
+    }
+
+    document.getElementById('searchBox').addEventListener('input', renderRecords);
+    document.getElementById('deptFilter').addEventListener('change', renderRecords);
+    document.getElementById('clearFilter').addEventListener('click', () => {
+      document.getElementById('searchBox').value = '';
+      document.getElementById('deptFilter').value = '';
+      renderRecords();
+    });
+
+    function openRecord(id, mode) {
+      current = active.find(row => String(row.id) === String(id)) ||
+        deleted.find(row => String(row.id) === String(id));
+
+      if (!current) return;
+
+      document.getElementById('modalTitle').textContent =
+        mode === 'edit' ? 'Edit Faculty Record' : 'Faculty Record';
+
+      const form = document.getElementById('recordForm');
+
+      form.innerHTML = fields.map(([key, label, type]) => {
+        const readonly = mode === 'view' || key === 'email' ? 'readonly' : '';
+        const fullClass = type === 'textarea' ? 'full' : '';
+
+        if (type === 'textarea') {
+          return `
+            <div class="field ${fullClass}">
+              <label>${esc(label)}</label>
+              <textarea name="${key}" rows="4" ${readonly}>${esc(current[key])}</textarea>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="field ${fullClass}">
+            <label>${esc(label)}</label>
+            <input name="${key}" type="${type}" value="${esc(current[key])}" ${readonly}>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('saveRecord').classList.toggle('hidden', mode !== 'edit');
+      document.getElementById('recordModal').classList.remove('hidden');
+      document.getElementById('modalMsg').textContent = '';
+    }
+
+    document.getElementById('closeModal').addEventListener('click', () => {
+      document.getElementById('recordModal').classList.add('hidden');
+    });
+
+    document.getElementById('saveRecord').addEventListener('click', async () => {
+      if (!current) return;
+
+      const formData = new FormData(document.getElementById('recordForm'));
+      const payload = {};
+
+      fields.forEach(([key]) => {
+        payload[key] = formData.get(key) || '';
+      });
+
+      payload.last_modified_time = new Date().toISOString();
+      document.getElementById('modalMsg').textContent = 'Saving…';
+
+      const { error } = await db
+        .from('ai_faculty_data')
+        .update(payload)
+        .eq('id', current.id);
+
+      if (error) {
+        document.getElementById('modalMsg').textContent = error.message;
+        return;
+      }
+
+      await logActivity('edit', current.id, current.email);
+      document.getElementById('recordModal').classList.add('hidden');
+      await refresh();
+    });
+
+    async function softDelete(id) {
+      const row = active.find(item => String(item.id) === String(id));
+      if (!row) return;
+
+      if (!confirm(`Soft delete ${row.name || row.email}? The record can be restored later.`)) return;
+
+      const { error } = await db
+        .from('ai_faculty_data')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          last_modified_time: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      await logActivity('soft_delete', id, row.email);
+      await refresh();
+    }
+
+    async function restoreRecord(id) {
+      const row = deleted.find(item => String(item.id) === String(id));
+
+      const { error } = await db
+        .from('ai_faculty_data')
+        .update({
+          is_deleted: false,
+          deleted_at: null,
+          last_modified_time: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      await logActivity('restore', id, row?.email || '');
+      await refresh();
+    }
+
+    async function logActivity(action, recordId, details = '') {
+      if (!admin) return;
+
+      await db.from('admin_activity_log_simple').insert({
+        admin_username: admin.username,
+        action,
+        record_id: String(recordId || ''),
+        details
+      });
+    }
+
+    async function renderAdmins() {
+      const { data, error } = await db.rpc('list_admin_login_users', {
+        p_admin_username: admin.username,
+        p_admin_password: currentAdminPassword
+      });
+
+      const body = document.getElementById('adminsBody');
+
+      if (error) {
+        body.innerHTML = `<tr><td colspan="5">${esc(error.message)}</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = (data || []).map(item => {
+        const isCurrent = Number(item.id) === Number(admin?.id);
+        const action = isCurrent
+          ? '<span class="muted">Current user</span>'
+          : `<button class="btn small ${item.is_active ? 'danger' : ''}" onclick="setAdminActive(${item.id}, ${!item.is_active})">${item.is_active ? 'Disable' : 'Reactivate'}</button>`;
+
+        return `
+          <tr>
+            <td>${esc(item.username)}</td>
+            <td><span class="admin-role">${esc(item.role === 'super_admin' ? 'Super Admin' : 'Admin')}</span></td>
+            <td><span class="admin-status ${item.is_active ? 'active' : 'inactive'}">${item.is_active ? 'Active' : 'Inactive'}</span></td>
+            <td>${fmt(item.created_at)}</td>
+            <td>${action}</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="5">No admin users found.</td></tr>';
+    }
+
+    document.getElementById('openAddAdmin').addEventListener('click', () => {
+      document.getElementById('newAdminUsername').value = '';
+      document.getElementById('newAdminPassword').value = '';
+      document.getElementById('newAdminRole').value = 'admin';
+      document.getElementById('addAdminMsg').textContent = '';
+      document.getElementById('addAdminModal').classList.remove('hidden');
+    });
+
+    document.getElementById('closeAddAdmin').addEventListener('click', () => {
+      document.getElementById('addAdminModal').classList.add('hidden');
+    });
+
+    document.getElementById('saveAdminUser').addEventListener('click', async () => {
+      const username = document.getElementById('newAdminUsername').value.trim();
+      const password = document.getElementById('newAdminPassword').value;
+      const role = document.getElementById('newAdminRole').value;
+      const message = document.getElementById('addAdminMsg');
+
+      if (!username) {
+        message.textContent = 'Enter a User ID.';
+        return;
+      }
+
+      if (!password) {
+        message.textContent = 'Enter a Password.';
+        return;
+      }
+
+      message.textContent = 'Adding admin…';
+
+      const { data, error } = await db.rpc('add_admin_login_user', {
+        p_admin_username: admin.username,
+        p_admin_password: currentAdminPassword,
+        p_username: username,
+        p_password: password,
+        p_role: role
+      });
+
+      if (error) {
+        message.textContent = error.message;
+        return;
+      }
+
+      const created = data?.[0];
+      await logActivity('add_admin', created?.id || '', created?.username || username);
+      document.getElementById('addAdminModal').classList.add('hidden');
+      await Promise.all([renderAdmins(), renderActivity()]);
+    });
+
+    async function setAdminActive(userId, makeActive) {
+      const verb = makeActive ? 'reactivate' : 'disable';
+
+      if (!confirm(`Are you sure you want to ${verb} this admin user?`)) return;
+
+      const { data, error } = await db.rpc('set_admin_login_user_active', {
+        p_admin_username: admin.username,
+        p_admin_password: currentAdminPassword,
+        p_user_id: userId,
+        p_active: makeActive
+      });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      const changed = data?.[0];
+      await logActivity(makeActive ? 'reactivate_admin' : 'disable_admin', userId, changed?.username || '');
+      await Promise.all([renderAdmins(), renderActivity()]);
+    }
+
+    async function renderActivity() {
+      const { data, error } = await db
+        .from('admin_activity_log_simple')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      const list = document.getElementById('activityList');
+
+      if (error) {
+        list.innerHTML = `<p>${esc(error.message)}</p>`;
+        return;
+      }
+
+      list.innerHTML = (data || []).map(item => `
+        <div class="activity">
+          <strong>${esc(item.action)}</strong>
+          <span class="muted">${esc(item.details || '')}</span><br>
+          <small>${esc(item.admin_username || '')} · ${fmt(item.created_at)}</small>
+        </div>
+      `).join('') || '<p>No activity yet.</p>';
+    }
+
+    const REQUIRED_CONSENT = 'I consent to my data being used for the stated purposes';
+
+    function cleanExcelValue(value) {
+      if (value === null || value === undefined) return '';
+      return String(value).trim();
+    }
+
+    async function sha256Hex(arrayBuffer) {
+      const digest = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      return Array.from(new Uint8Array(digest))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    async function wasExcelAlreadyImported(fileHash) {
+      if (!fileHash) return false;
+      const { data, error } = await db
+        .from('admin_activity_log_simple')
+        .select('id')
+        .eq('action', 'import_excel')
+        .ilike('details', `%file_sha256=${fileHash}%`)
+        .limit(1);
+      if (error) throw error;
+      return !!(data && data.length);
+    }
+
+    function excelDateToISO(value) {
+      if (!value) return null;
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+      if (typeof value === 'number') {
+        const parsed = XLSX.SSF.parse_date_code(value);
+        if (parsed) {
+          const dt = new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d, parsed.H || 0, parsed.M || 0, Math.floor(parsed.S || 0)));
+          return dt.toISOString();
+        }
+      }
+      const dt = new Date(value);
+      return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
+    }
+
+    function normaliseExcelRow(row, rowNumber) {
+      const values = Array.isArray(row) ? row : [];
+      const email = cleanExcelValue(values[3]).toLowerCase();
+      const consent = cleanExcelValue(values[16]);
+      const now = new Date().toISOString();
+      return {
+        _rowNumber: rowNumber,
+        _validConsent: consent === REQUIRED_CONSENT,
+        email,
+        name: cleanExcelValue(values[4]) || null,
+        department: cleanExcelValue(values[6]) || null,
+        research_groups: cleanExcelValue(values[7]) || null,
+        keywords: cleanExcelValue(values[8]) || null,
+        showcase_interest: cleanExcelValue(values[9]) || null,
+        ai_research: cleanExcelValue(values[10]) || null,
+        enterprise_projects: cleanExcelValue(values[11]) || null,
+        future_directions: cleanExcelValue(values[12]) || null,
+        external_organisations: cleanExcelValue(values[13]) || null,
+        support_training: cleanExcelValue(values[14]) || null,
+        additional_comments: cleanExcelValue(values[15]) || null,
+        consent: consent || null,
+        start_time: excelDateToISO(values[1]) || now,
+        completion_time: excelDateToISO(values[2]) || now,
+        last_modified_time: now
+      };
+    }
+
+    function excelRowStatus(row) {
+      if (!row.email) return { text: 'Skipped — no email', kind: 'skip' };
+      if (!row._validConsent) return { text: 'Skipped — consent missing', kind: 'skip' };
+      const existing = [...active, ...deleted].find(item => String(item.email || '').trim().toLowerCase() === row.email);
+      return existing ? { text: 'Update existing', kind: 'update' } : { text: 'Insert new', kind: 'new' };
+    }
+
+    function renderExcelPreview() {
+      let newCount = 0, updateCount = 0, skipCount = 0;
+      const rows = pendingExcelRows.map(row => {
+        const status = excelRowStatus(row);
+        if (status.kind === 'new') newCount++;
+        else if (status.kind === 'update') updateCount++;
+        else skipCount++;
+        return { row, status };
+      });
+
+      document.getElementById('excelSummary').classList.remove('hidden');
+      document.getElementById('excelSummary').innerHTML =
+        `<strong>${pendingExcelRows.length}</strong> data row(s) found · ` +
+        `<strong>${newCount}</strong> new · <strong>${updateCount}</strong> update · <strong>${skipCount}</strong> skipped`;
+
+      document.getElementById('excelPreviewBody').innerHTML = rows.slice(0, 100).map(({ row, status }) => `
+        <tr>
+          <td>${row._rowNumber}</td>
+          <td>${esc(row.name || '')}</td>
+          <td>${esc(row.email || '')}</td>
+          <td>${esc(row.department || '')}</td>
+          <td>${esc(status.text)}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="5">No data rows found.</td></tr>';
+
+      document.getElementById('excelPreviewWrap').classList.remove('hidden');
+      document.getElementById('importExcelBtn').classList.toggle('hidden', !rows.some(item => item.status.kind !== 'skip'));
+    }
+
+    document.getElementById('uploadExcelBtn').addEventListener('click', () => {
+      pendingExcelRows = [];
+      pendingExcelHash = '';
+      pendingExcelName = '';
+      pendingExcelAlreadyImported = false;
+      document.getElementById('excelFileInput').value = '';
+      document.getElementById('excelSummary').classList.add('hidden');
+      document.getElementById('excelPreviewWrap').classList.add('hidden');
+      document.getElementById('importExcelBtn').classList.add('hidden');
+      document.getElementById('excelUploadMsg').textContent = '';
+      document.getElementById('excelUploadModal').classList.remove('hidden');
+    });
+
+    document.getElementById('closeExcelUpload').addEventListener('click', () => {
+      document.getElementById('excelUploadModal').classList.add('hidden');
+    });
+
+    document.getElementById('excelFileInput').addEventListener('change', async event => {
+      const file = event.target.files?.[0];
+      const message = document.getElementById('excelUploadMsg');
+      pendingExcelRows = [];
+      document.getElementById('importExcelBtn').classList.add('hidden');
+      if (!file) return;
+
+      message.textContent = 'Reading Excel…';
+      try {
+        const buffer = await file.arrayBuffer();
+        pendingExcelHash = await sha256Hex(buffer);
+        pendingExcelName = file.name || 'Excel file';
+        pendingExcelAlreadyImported = await wasExcelAlreadyImported(pendingExcelHash);
+
+        if (pendingExcelAlreadyImported) {
+          document.getElementById('excelSummary').classList.add('hidden');
+          document.getElementById('excelPreviewWrap').classList.add('hidden');
+          document.getElementById('importExcelBtn').classList.add('hidden');
+          pendingExcelRows = [];
+          message.textContent = 'This exact Excel file has already been imported. Upload blocked to prevent duplicate imports.';
+          return;
+        }
+
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+        if (!workbook.SheetNames.length) throw new Error('No worksheet was found in this Excel file.');
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true });
+        if (matrix.length < 2) throw new Error('The Excel file does not contain any faculty data rows.');
+
+        const header = matrix[0].map(value => cleanExcelValue(value).toLowerCase());
+        const emailHeader = header[3] || '';
+        const nameHeader = header[4] || '';
+        if (!emailHeader.includes('email') || !nameHeader.includes('name')) {
+          throw new Error('Excel columns do not match the expected Faculty Microsoft Forms export (Email should be column D and Name column E).');
+        }
+
+        pendingExcelRows = matrix.slice(1)
+          .map((row, index) => normaliseExcelRow(row, index + 2))
+          .filter(row => row.email || row.name || row.department);
+
+        renderExcelPreview();
+        message.textContent = 'Preview ready. Review the rows, then click Import to Database.';
+      } catch (err) {
+        message.textContent = err.message || String(err);
+        pendingExcelRows = [];
+      }
+    });
+
+    document.getElementById('importExcelBtn').addEventListener('click', async () => {
+      const button = document.getElementById('importExcelBtn');
+      const message = document.getElementById('excelUploadMsg');
+      if (!pendingExcelRows.length) return;
+      if (pendingExcelAlreadyImported) {
+        message.textContent = 'This exact Excel file has already been imported. Import blocked.';
+        return;
+      }
+      if (!confirm('Import the previewed Excel rows into the faculty database? Existing emails will be updated, but blank Excel cells will not erase existing database values.')) return;
+
+      button.disabled = true;
+      let inserted = 0, updated = 0, skipped = 0, errors = 0;
+      const errorRows = [];
+
+      for (let i = 0; i < pendingExcelRows.length; i++) {
+        const row = pendingExcelRows[i];
+        message.textContent = `Importing ${i + 1} of ${pendingExcelRows.length}…`;
+
+        if (!row.email || !row._validConsent) {
+          skipped++;
+          continue;
+        }
+
+        const payload = { ...row };
+        delete payload._rowNumber;
+        delete payload._validConsent;
+
+        try {
+          const { data: existingRows, error: lookupError } = await db
+            .from('ai_faculty_data')
+            .select('id,email')
+            .ilike('email', row.email)
+            .limit(1);
+          if (lookupError) throw lookupError;
+
+          const existing = existingRows?.[0];
+          if (existing) {
+            delete payload.start_time;
+            delete payload.completion_time;
+
+            // Safe update: blank Excel cells never overwrite existing database values.
+            const safePayload = {};
+            Object.entries(payload).forEach(([key, value]) => {
+              if (value !== null && value !== undefined && String(value).trim() !== '') {
+                safePayload[key] = value;
+              }
+            });
+            safePayload.is_deleted = false;
+            safePayload.deleted_at = null;
+            safePayload.last_modified_time = new Date().toISOString();
+
+            const { error } = await db
+              .from('ai_faculty_data')
+              .update(safePayload)
+              .eq('id', existing.id);
+            if (error) throw error;
+            updated++;
+          } else {
+            payload.is_deleted = false;
+            const { error } = await db
+              .from('ai_faculty_data')
+              .insert(payload);
+            if (error) throw error;
+            inserted++;
+          }
+        } catch (err) {
+          errors++;
+          errorRows.push(`row ${row._rowNumber}: ${err.message || err}`);
+        }
+      }
+
+      await logActivity(
+        'import_excel',
+        '',
+        `${inserted} inserted, ${updated} updated, ${skipped} skipped, ${errors} error(s); file=${pendingExcelName}; file_sha256=${pendingExcelHash}`
+      );
+      pendingExcelAlreadyImported = true;
+      await refresh();
+      button.disabled = false;
+      message.textContent = `Import complete — New: ${inserted} | Updated: ${updated} | Skipped: ${skipped} | Errors: ${errors}` +
+        (errorRows.length ? ` — ${errorRows.slice(0, 3).join(' ; ')}` : '');
+      renderExcelPreview();
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', async () => {
+      const rows = filtered().map(row => {
+        const output = {};
+        fields.forEach(([key, label]) => {
+          output[label] = row[key] ?? '';
+        });
+        output['Last Modified'] = row.last_modified_time ?? '';
+        return output;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Faculty Data');
+
+      const date = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `Faculty_AI_Data_${date}.xlsx`);
+
+      await logActivity('export_excel', '', `${rows.length} active record(s)`);
+      await renderActivity();
+    });
+
+    document.querySelectorAll('.tab').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(item => item.classList.remove('active'));
+        button.classList.add('active');
+
+        document.querySelectorAll('.tabpane').forEach(item => item.classList.add('hidden'));
+        document.getElementById(`${button.dataset.tab}Tab`).classList.remove('hidden');
+      });
+    });
+
+    showLogin();
+  </script>
+</body>
+</html>
